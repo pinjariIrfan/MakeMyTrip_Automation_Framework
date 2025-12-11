@@ -1,159 +1,139 @@
 package pages;
 
+import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.Keys;
-import java.util.List;
+
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 public class FlightSearchPage extends BasePage {
-    
-    // Flight search form locators
-    @FindBy(id = "fromCity")
+
+    @FindBy(xpath = "//label[@for='fromCity']")
     private WebElement fromCityInput;
-    
+
     @FindBy(xpath = "//input[@placeholder='From']")
-    private WebElement fromCitySearchBox;
-    
-    @FindBy(id = "toCity")
+    private WebElement fromInputBox;
+
+    @FindBy(xpath = "//label[@for='toCity']")
     private WebElement toCityInput;
-    
+
     @FindBy(xpath = "//input[@placeholder='To']")
-    private WebElement toCitySearchBox;
-    
-    @FindBy(xpath = "//span[text()='DEPARTURE']")
-    private WebElement departureDateLabel;
-    
-    @FindBy(xpath = "//span[@aria-label='Next Month']")
-    private WebElement nextMonthButton;
-    
+    private WebElement toInputBox;
+
+    @FindBy(xpath = "//div[@aria-label='Fri Jan 10 2025']")
+    private WebElement departureDate;
+
     @FindBy(xpath = "//a[text()='Search']")
     private WebElement searchButton;
-    
-    // Flight results locators
-    @FindBy(xpath = "//div[@class='listingCard']")
-    private List<WebElement> flightCards;
-    
-    @FindBy(xpath = "//div[@class='priceSection']//p")
-    private List<WebElement> priceElements;
-    
+
+    @FindBy(xpath = "//p[@data-cy='price']")
+    private List<WebElement> priceList;
+
+    @FindBy(xpath = "//p[@class='appendBottom5 font14 blackText']")
+    private WebElement flightName;
+
+    @FindBy(xpath = "//span[@class='bgProperties icon20 overlayCrossIcon']")
+    private WebElement closeAdPopup;
+
     public FlightSearchPage(WebDriver driver) {
         super(driver);
     }
-    
-    public void enterSourceCity(String city) {
+
+    // Enter source and destination cities
+    public void enterCities(String fromCity, String toCity) throws InterruptedException {
+
+        waitForElement(fromCityInput);
         fromCityInput.click();
-        fromCitySearchBox.sendKeys(city);
-        fromCitySearchBox.sendKeys(Keys.ENTER);
-        System.out.println("✓ Entered source city: " + city);
-    }
-    
-    public void enterDestinationCity(String city) {
+        fromInputBox.sendKeys(fromCity);
+        Thread.sleep(800);
+        fromInputBox.sendKeys(Keys.ENTER);
+
+        waitForElement(toCityInput);
         toCityInput.click();
-        toCitySearchBox.sendKeys(city);
-        toCitySearchBox.sendKeys(Keys.ENTER);
-        System.out.println("✓ Entered destination city: " + city);
+        toInputBox.sendKeys(toCity);
+        Thread.sleep(800);
+        toInputBox.sendKeys(Keys.ENTER);
+
+        System.out.println("From and To cities selected");
     }
-    
-    public void selectDateNextMonth() {
-        departureDateLabel.click();
-        
-        // Click next month button
-        nextMonthButton.click();
-        
-        // Select 15th day of next month (you can modify this)
-        WebElement day15 = driver.findElement(
-            org.openqa.selenium.By.xpath("//div[@aria-label='Sat Feb 15 2025']")
-        );
-        day15.click();
-        
-        System.out.println("✓ Selected date for next month");
+
+    // Select fixed date (you can parameterize later)
+    public void selectDate() {
+        waitForElement(departureDate);
+        departureDate.click();
+        System.out.println("Departure date selected");
     }
-    
-    public void clickSearch() {
+
+    // Hit search button
+    public void clickSearch() throws InterruptedException {
+        waitForElement(searchButton);
         searchButton.click();
-        System.out.println("✓ Clicked Search button");
-        
-        // Wait for results to load
-        try {
-            Thread.sleep(8000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        System.out.println("Clicked on Search button");
+        Thread.sleep(3000); // simplest wait on fresher level
     }
-    
-    public void findAndPrintCheapestFlights() {
-        List<FlightPrice> flightPrices = new ArrayList<>();
-        
-        // Collect flight prices
-        for (int i = 0; i < Math.min(flightCards.size(), priceElements.size()); i++) {
-            try {
-                String flightName = flightCards.get(i).getText().split("\n")[0];
-                String priceText = priceElements.get(i).getText().replaceAll("[^0-9]", "");
-                if (!priceText.isEmpty()) {
-                    int price = Integer.parseInt(priceText);
-                    flightPrices.add(new FlightPrice(flightName, price));
-                }
-            } catch (Exception e) {
-                // Skip if any error
+
+    // Extract minimum price from the available flights
+    public int getMinimumFlightPrice() {
+
+        try {
+            closeAdPopup.click();  // close any ad if appears
+        } catch (Exception ignored) {}
+
+        waitForElementList(priceList);
+
+        List<Integer> prices = new ArrayList<>();
+
+        for (WebElement price : priceList) {
+            String txt = price.getText().replace("₹", "").replace(",", "").trim();
+            if (!txt.isEmpty()) {
+                prices.add(Integer.parseInt(txt));
             }
         }
-        
-        // Sort by price (ascending)
-        Collections.sort(flightPrices, (a, b) -> a.price - b.price);
-        
-        // Print results
-        System.out.println("\n" + "=".repeat(50));
-        System.out.println("FLIGHT SEARCH RESULTS:");
-        System.out.println("=".repeat(50));
-        
-        if (flightPrices.size() > 0) {
-            System.out.println("1. CHEAPEST FLIGHT:");
-            System.out.println("   Airline: " + flightPrices.get(0).airline);
-            System.out.println("   Price: ₹" + flightPrices.get(0).price);
+
+        if (prices.isEmpty()) {
+            System.out.println("No prices found!");
+            return -1;
         }
-        
-        if (flightPrices.size() > 1) {
-            System.out.println("\n2. SECOND CHEAPEST FLIGHT:");
-            System.out.println("   Airline: " + flightPrices.get(1).airline);
-            System.out.println("   Price: ₹" + flightPrices.get(1).price);
-        }
-        
-        System.out.println("\nTotal flights found: " + flightPrices.size());
-        System.out.println("=".repeat(50));
+
+        int minPrice = Collections.min(prices);
+        System.out.println("Minimum Price: " + minPrice);
+
+        return minPrice;
     }
-    
-    public void openNewTabAndNavigateToGoogle() {
-        // Open new tab
-        driver.switchTo().newWindow(org.openqa.selenium.WindowType.TAB);
-        
-        // Navigate to Google
-        driver.get("https://www.google.com");
-        System.out.println("✓ Opened new tab and navigated to Google");
-        System.out.println("  Current URL: " + driver.getCurrentUrl());
-        
-        // Switch back to original tab (optional)
+
+    // Extract flight name from details page
+    public String getFlightName() {
+
+        try {
+            return flightName.getText();
+        } catch (Exception e) {
+            return "Flight Name Not Visible";
+        }
+    }
+
+    // Open new tab for Google search
+    public void openGoogleInNewTab() {
+        ((org.openqa.selenium.JavascriptExecutor) driver).executeScript("window.open('https://www.google.com','_blank');");
+        System.out.println("Opened Google in new tab");
+    }
+
+    // Switch to new tab
+    public void switchToNewTab() {
         ArrayList<String> tabs = new ArrayList<>(driver.getWindowHandles());
-        driver.switchTo().window(tabs.get(0));
+        driver.switchTo().window(tabs.get(1));
+        System.out.println("Switched to second tab");
     }
-    
-    // Inner class to store flight details
-    private static class FlightPrice {
-        String airline;
-        int price;
-        
-        FlightPrice(String airline, int price) {
-            this.airline = airline;
-            this.price = price;
-        }
-    }
-    
-    // Additional method for extra scenario
-    public void takeScreenshotOfResults() {
-        System.out.println("\n[ADDITIONAL SCENARIO] Taking screenshot of results...");
-        System.out.println("Screenshot would be saved in target/screenshots folder");
-        // Actual screenshot code would go here
+
+    // Perform Google search
+    public void searchOnGoogle(String text) throws InterruptedException {
+        WebElement googleBox = driver.findElement(By.name("q"));
+        googleBox.sendKeys(text);
+        Thread.sleep(700);
+        googleBox.sendKeys(Keys.ENTER);
+        System.out.println("Searched on Google: " + text);
     }
 }
